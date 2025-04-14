@@ -37,7 +37,6 @@
     <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
     <script type="text/javascript">
         (function () {
-            // https://dashboard.emailjs.com/admin/account
             emailjs.init({
                 publicKey: "p5iPDJweEfjfRmPzX",
             });
@@ -56,7 +55,6 @@
                 <th>Price</th>
                 <th>Current Inv</th>
                 <th>QTY
-                    <p>*to delete on rows 2 & 4, highlight the qty, then backspace</p>
                 </th>
                 <th>EXT PRICE</th>
             </tr>
@@ -68,7 +66,7 @@
                 <td>G1-E Gateway</td>
                 <td>$477.39</td>
                 <td>LIMITED IN STOCK</td>
-                <td><input type="number" min="1" placeholder="min = 1"></td>
+                <td>sets of 1: <input type="number" data-multiplier="1" min="0"></td>
                 <td class="extPrice"></td>
             </tr>
             <tr>
@@ -77,7 +75,7 @@
                 <td>2.6” BWR</td>
                 <td>$12.63</td>
                 <td>LIMITED IN STOCK</td>
-                <td><input type="number" min="18" placeholder="min = 18"></td>
+                <td>sets of 18: <input type="number" data-multiplier="18" min="0"></td>
                 <td class="extPrice"></td>
             </tr>
             <tr>
@@ -86,7 +84,7 @@
                 <td>4.2” BWR</td>
                 <td>$22.40</td>
                 <td>LIMITED IN STOCK</td>
-                <td><input type="number" min="6" placeholder="min = 6"></td>
+                <td>sets of 6: <input type="number" data-multiplier="6" min="0"></td>
                 <td class="extPrice"></td>
             </tr>
             <tr>
@@ -95,7 +93,7 @@
                 <td>5.8” BWRY</td>
                 <td>$39.00</td>
                 <td>SOLD OUT / ON ORDER</td>
-                <td><input type="number" min="10" placeholder="min = 10"></td>
+                <td>sets of 10: <input type="number" data-multiplier="10" min="0"></td>
                 <td class="extPrice"></td>
             </tr>
             <tr>
@@ -104,7 +102,7 @@
                 <td>11.6” BWR</td>
                 <td>$177.11</td>
                 <td>LIMITED IN STOCK</td>
-                <td><input type="number" min="5" placeholder="min = 5"></td>
+                <td>sets of 5: <input type="number" data-multiplier="5" min="0"></td>
                 <td class="extPrice"></td>
             </tr>
             <tr>
@@ -113,7 +111,7 @@
                 <td>Millimeter Wave Radar Sensor (People Counter)</td>
                 <td>$90.00</td>
                 <td>LIMITED IN STOCK</td>
-                <td><input type="number" min="1" placeholder="min = 1"></td>
+                <td>sets of 1: <input type="number" data-multiplier="1" min="0"></td>
                 <td class="extPrice"></td>
             </tr>
 
@@ -134,25 +132,22 @@
         <button onclick="downloadCSV()">Download and email order details</button>
     </div>
 
-
     <script>
         const table = document.getElementById('inventoryTable');
 
         table.addEventListener('input', function (event) {
             if (event.target.type === 'number') {
                 const input = event.target;
-                const min = parseInt(input.min) || 0;
-
-                if (parseInt(input.value) < min) {
-                    input.value = min;
-                }
+                const sets = parseInt(input.value) || 0;
+                const multiplier = parseInt(input.getAttribute('data-multiplier')) || 1;
+                const trueQuantity = sets * multiplier;
 
                 const row = input.closest('tr');
                 const priceText = row.querySelector('td:nth-child(4)').innerText.replace('$', '');
-                const price = parseFloat(priceText) || 0;
-                const quantity = parseInt(input.value) || 0;
+                const unitPrice = parseFloat(priceText) || 0;
+
                 const extPriceCell = row.querySelector('.extPrice');
-                extPriceCell.innerText = '$' + (price * quantity).toFixed(2);
+                extPriceCell.innerText = '$' + (unitPrice * trueQuantity).toFixed(2);
 
                 calculateTotal();
             }
@@ -171,60 +166,65 @@
         window.addEventListener('DOMContentLoaded', () => {
             const inputs = table.querySelectorAll('input[type="number"]');
             inputs.forEach(input => {
+                const sets = parseInt(input.value) || 0;
+                const multiplier = parseInt(input.getAttribute('data-multiplier')) || 1;
+                const trueQuantity = sets * multiplier;
+
                 const row = input.closest('tr');
                 const priceText = row.querySelector('td:nth-child(4)').innerText.replace('$', '');
-                const price = parseFloat(priceText) || 0;
-                const quantity = parseInt(input.value) || 0;
+                const unitPrice = parseFloat(priceText) || 0;
                 const extPriceCell = row.querySelector('.extPrice');
-                extPriceCell.innerText = '$' + (price * quantity).toFixed(2);
+                extPriceCell.innerText = '$' + (unitPrice * trueQuantity).toFixed(2);
             });
             calculateTotal();
         });
 
+        function escapeCSV(value) {
+            if (value == null) return "";
+            value = value.toString().replace(/"/g, '""');
+            return `"${value}"`;
+        }
+
         function downloadCSV() {
             let csv = [];
-            //csv.push("data:text/csv;charset=utf-8,")
-            const rows = table.querySelectorAll('tbody tr'); // Only tbody (no thead)
+            const rows = table.querySelectorAll('tbody tr');
 
-            // Add headers manually (clean header without the <p> note)
             const headers = ["ITEM #", "Type", "Description", "Price", "Current Inv", "QTY", "EXT PRICE"];
-            csv.push(headers.join(","));
+            csv.push(headers.map(escapeCSV).join(","));
 
             rows.forEach(row => {
                 const cols = row.querySelectorAll('td');
                 const rowData = [];
                 cols.forEach((col, index) => {
+                    let value = '';
                     if (index === 5 && col.querySelector('input')) {
-                        // For the QTY column, get the input value
-                        rowData.push(col.querySelector('input').value);
+                        const sets = parseInt(col.querySelector('input').value) || 0;
+                        const multiplier = parseInt(col.querySelector('input').getAttribute('data-multiplier')) || 1;
+                        const trueQuantity = sets * multiplier;
+                        value = trueQuantity.toString();
                     } else {
-                        rowData.push(col.innerText.trim().replace(/\n/g, " ")); // Remove weird line breaks
+                        value = col.innerText.trim().replace(/\n/g, " ");
                     }
+                    rowData.push(escapeCSV(value));
                 });
-                // Only add non-empty rows
-                if (rowData.some(cell => cell !== '')) {
+                if (rowData.some(cell => cell !== '""')) {
                     csv.push(rowData.join(","));
                 }
             });
 
-
             download(csv.join("\n"), "inventory");
-            //sendEmail(csv)
         }
-
 
         const download = (data, name) => {
             const blob = new Blob(["\uFEFF" + data], { type: "text/csv;charset=utf-8" });
 
             const reader = new FileReader();
             reader.onload = function () {
-                const base64data = reader.result.split(',')[1]; // Only the base64 part
-
-                sendEmail(base64data, name + ".csv"); // Now send the real base64 file content
+                const base64data = reader.result.split(',')[1];
+                sendEmail(base64data, name + ".csv");
             };
-            reader.readAsDataURL(blob); // Read blob as base64
+            reader.readAsDataURL(blob);
 
-            // Still trigger the download
             const url = URL.createObjectURL(blob);
             const a = document.createElement("a");
             a.href = url;
@@ -274,7 +274,6 @@
             //     total_opportunity_new: sum_new,
             // });
         }
-
     </script>
 
 </body>
